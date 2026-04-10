@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Director Hub PRO</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+{% if google_maps_key %}<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_key }}"></script>{% endif %}
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1115;--panel:#1a1d23;--panel2:#252932;--accent:#ff3e3e;--text:#e8e8e8;--muted:#8a95a8;--line:#343844;--green:#059669}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+/* TOPBAR */
+#topbar{height:52px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 18px;gap:16px;flex-shrink:0}
+.logo{font-family:'Outfit';font-size:20px;font-weight:800;letter-spacing:-0.5px}
+.logo .hub{color:var(--accent)}
+#tabs{display:flex;gap:4px;margin-left:20px}
+.tab{height:34px;padding:0 16px;border-radius:7px;font-family:'Outfit';font-size:13px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:.15s}
+.tab:hover{background:var(--panel2);color:var(--text)}
+.tab.active{background:var(--accent);color:#fff}
+.top-actions{margin-left:auto;display:flex;gap:8px}
+.top-btn{height:34px;padding:0 14px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-family:'Outfit';font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;transition:.15s}
+.top-btn:hover{border-color:var(--accent);color:var(--accent)}
+/* LAYOUT */
+#layout{display:flex;flex:1;overflow:hidden}
+/* SIDEBAR LEFT */
+#sidebar{width:300px;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;flex-shrink:0;padding:14px}
+.lib-card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer;transition:.1s}
+.lib-card:hover{border-color:var(--accent)}
+.lib-card.selected{border-color:var(--accent);background:rgba(255,62,62,0.08)}
+.lib-name{font-weight:700;font-size:13px}
+.lib-meta{font-family:'JetBrains Mono';font-size:11px;color:var(--muted);margin-top:3px}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.field label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px}
+.field input,.field select{width:100%;height:34px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--text);padding:0 10px;font-family:'JetBrains Mono';font-size:12px}
+.btn-run{width:100%;height:42px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:'Outfit';font-size:14px;font-weight:700;cursor:pointer;margin-top:12px;transition:.15s}
+.btn-run:hover{background:#e03030}
+.btn-run:disabled{opacity:0.4;cursor:default}
+.section-title{font-family:'Outfit';font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin:16px 0 8px}
+/* MAIN */
+#main{flex:1;display:flex;flex-direction:column;min-width:0}
+#chart-area{height:55%;min-height:300px;position:relative}
+#chart-container{width:100%;height:100%}
+#map-area{height:45%;position:relative;border-top:1px solid var(--line)}
+#gmap{width:100%;height:100%;background:var(--bg)}
+#sv-box{position:absolute;right:12px;bottom:12px;width:300px;height:185px;border:2px solid var(--accent);border-radius:10px;overflow:hidden;background:#000;box-shadow:0 10px 30px rgba(0,0,0,0.6);z-index:10}
+#sv-pano{width:100%;height:100%}
+#empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);text-align:center;gap:12px}
+#empty h2{font-size:22px;color:var(--text);font-weight:800}
+#empty p{font-size:14px;max-width:380px;line-height:1.5}
+/* ROADBOOK */
+#roadbook{width:320px;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.rb-header{padding:14px 16px;background:var(--panel2);border-bottom:1px solid var(--line);font-weight:800;font-size:13px;color:var(--accent);text-transform:uppercase;letter-spacing:2px}
+#rb-summary{padding:10px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line);line-height:1.5}
+#rb-items{flex:1;overflow-y:auto;padding:10px}
+.rb-card{background:var(--panel2);padding:12px;border-radius:8px;margin-bottom:8px;cursor:pointer;border-left:4px solid var(--line);transition:.1s}
+.rb-card:hover{transform:translateX(3px);background:#2d3440}
+.rb-card.high{border-left-color:var(--accent)}
+.rb-card.medium{border-left-color:#ffb020}
+.rb-km{font-family:'JetBrains Mono';font-weight:700;font-size:15px;color:var(--accent)}
+.rb-label{margin-top:4px;font-size:13px;font-weight:600}
+.rb-meta{margin-top:3px;font-size:11px;color:var(--muted)}
+/* LOADING */
+#loading{position:fixed;inset:0;background:rgba(15,17,21,0.92);backdrop-filter:blur(4px);z-index:300;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+#loading.show{display:flex}
+.ld-title{font-size:20px;font-weight:800;letter-spacing:3px;text-transform:uppercase}
+.ld-msg{font-size:13px;color:var(--muted)}
+.ld-bar{width:300px;height:4px;background:var(--panel2);border-radius:2px;overflow:hidden}
+.ld-fill{height:100%;background:var(--accent);width:0%;transition:width .3s}
+/* ANN PANEL */
+#ann-panel{position:fixed;left:320px;top:50%;transform:translateY(-50%);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;z-index:100;display:none;width:240px;box-shadow:0 16px 40px rgba(0,0,0,0.5)}
+#ann-panel.show{display:block}
+#ann-panel h4{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px}
+.ann-btn{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;margin-bottom:6px;color:var(--text);transition:.15s;text-align:left}
+.ann-btn:hover{border-color:var(--accent);color:var(--accent)}
+/* MODULE STATS */
+.mod-stats{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.ms{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line);font-size:12px}
+.ms-k{color:var(--muted)}
+.ms-v{font-family:'JetBrains Mono';font-weight:600;color:var(--text)}
+/* TOAST */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="logo">DIRECTOR <span class="hub">HUB</span> PRO</div>
+  <div id="tabs">
+    <button class="tab active" onclick="switchTab('principal')">📊 PRINCIPAL</button>
+    <button class="tab" onclick="switchTab('rampas')">⛰ RAMPAS</button>
+    <button class="tab" onclick="switchTab('viento')">💨 VIENTO</button>
+    <button class="tab" onclick="switchTab('lluvia')">🌧 LLUVIA</button>
+    <button class="tab" onclick="switchTab('energia')">⚡ ENERGÍA</button>
+    <button class="tab" onclick="switchTab('pav')">🪨 PAVIMENTO</button>
+  </div>
+  <div class="top-actions">
+    <button class="top-btn" onclick="exportGPX()">↓ GPX</button>
+    <button class="top-btn" onclick="exportPDF()">📄 PDF</button>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div id="layout">
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="section-title">MIS ETAPAS</div>
+    <div id="lib-list"></div>
+
+    <div class="section-title" style="margin-top:18px">PARÁMETROS</div>
+    <div class="field-grid">
+      <div class="field"><label>Fecha</label><input type="date" id="f-date"></div>
+      <div class="field"><label>Hora</label><input type="number" id="f-hour" value="11" min="0" max="23"></div>
+      <div class="field"><label>Peso (kg)</label><input type="number" id="f-weight" value="70"></div>
+      <div class="field"><label>FTP W/kg</label><input type="number" id="f-ftp" value="4.5" step="0.1"></div>
+    </div>
+    <button class="btn-run" id="btn-run" onclick="runAnalysis()">▶ ANALIZAR ETAPA</button>
+
+    <div class="section-title" style="margin-top:18px">CARGAR GPX</div>
+    <input type="file" id="gpx-file" accept=".gpx" style="display:none" onchange="onFileSelected()">
+    <button class="top-btn" style="width:100%" onclick="document.getElementById('gpx-file').click()">📁 Seleccionar archivo GPX</button>
+
+    <!-- MODULES -->
+    <div id="modules" style="display:none">
+      <div class="section-title" style="margin-top:14px">⛰ RAMPAS</div>
+      <div class="mod-stats">
+        <div class="ms"><span class="ms-k">Tramos >6%</span><span class="ms-v" id="s-r6">—</span></div>
+        <div class="ms"><span class="ms-k">Pendiente máx</span><span class="ms-v" id="s-mg">—</span></div>
+        <div class="ms"><span class="ms-k">D+ total</span><span class="ms-v" id="s-dp">—</span></div>
+      </div>
+
+      <div class="section-title">💨 VIENTO</div>
+      <div class="mod-stats">
+        <div class="ms"><span class="ms-k">Velocidad</span><span class="ms-v" id="s-ws">—</span></div>
+        <div class="ms"><span class="ms-k">Dirección</span><span class="ms-v" id="s-wd">—</span></div>
+        <div class="ms"><span class="ms-k">Zonas costado</span><span class="ms-v" id="s-wz">—</span></div>
+      </div>
+
+      <div class="section-title">🌧 LLUVIA</div>
+      <div class="mod-stats">
+        <div class="ms"><span class="ms-k">Precipitación</span><span class="ms-v" id="s-rn">—</span></div>
+        <div class="ms"><span class="ms-k">Km con lluvia</span><span class="ms-v" id="s-rk">—</span></div>
+      </div>
+
+      <div class="section-title">⚡ ENERGÍA</div>
+      <div class="mod-stats">
+        <div class="ms"><span class="ms-k">Energía total</span><span class="ms-v" id="s-kj">—</span></div>
+        <div class="ms"><span class="ms-k">Tiempo est.</span><span class="ms-v" id="s-tt">—</span></div>
+      </div>
+
+      <div class="section-title">🪨 PAVIMENTO</div>
+      <div id="s-pav" class="mod-stats"><div class="ms"><span class="ms-k">Sin datos</span></div></div>
+
+      <div class="section-title">📍 WAYPOINTS</div>
+      <div id="wp-list" style="font-size:12px;color:var(--muted)">Sin waypoints</div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div id="main">
+    <div id="chart-area">
+      <div id="empty">
+        <div style="font-size:48px">🏔</div>
+        <h2>Sin etapa cargada</h2>
+        <p>Selecciona una etapa de la librería o carga un archivo GPX para iniciar el análisis táctico.</p>
+      </div>
+      <div id="chart-container" style="display:none"></div>
+    </div>
+    <div id="map-area" style="display:none">
+      <div id="gmap"></div>
+      <div id="sv-box"><div id="sv-pano"></div></div>
+    </div>
+  </div>
+
+  <!-- ROADBOOK -->
+  <div id="roadbook">
+    <div class="rb-header">ROADBOOK TÁCTICO</div>
+    <div id="rb-summary">Analiza una etapa para ver el briefing táctico.</div>
+    <div id="rb-items"><div style="text-align:center;margin-top:40px;opacity:0.3">Sin eventos</div></div>
+  </div>
+</div>
+
+<!-- ANNOTATION PANEL -->
+<div id="ann-panel">
+  <h4>Añadir Waypoint</h4>
+  <button class="ann-btn" onclick="doAnn('🚰 Avituallamiento','avit')">🚰 Avituallamiento</button>
+  <button class="ann-btn" onclick="doAnn('⚠️ Peligro','danger')">⚠️ Peligro</button>
+  <button class="ann-btn" onclick="doAnn('🏁 Sprint','sprint')">🏁 Sprint</button>
+  <button class="ann-btn" onclick="doAnn('📍 Punto clave','key')">📍 Punto clave</button>
+  <button class="ann-btn" onclick="cancelAnn()" style="color:var(--muted)">✕ Cancelar</button>
+</div>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="ld-title">ANALIZANDO ETAPA</div>
+  <div class="ld-msg" id="ld-msg">Iniciando...</div>
+  <div class="ld-bar"><div class="ld-fill" id="ld-fill"></div></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const S = {
+  stageId: null, data: null, gd: null, wpList: [], wpCounter: 0,
+  pendingAnn: null, idxStaff: -1, idxCursor: -1, activeTab: 'principal',
+  layers: {rampas3:false,rampas6:false,rampas9:false,bajada:false,viento:false,lluvia:false,energia:false,pav:false},
+};
+let gmap=null, gmapPoly=null, gmapMarker=null, gmapPano=null;
+let LIB=[], LIB_SEL=null;
+
+// ═══════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════
+// Tabs recolor the bars — no overlay toggling needed
+
+function switchTab(view) {
+  S.activeTab = view;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="${view}"]`)?.classList.add('active');
+  recolorBars(view);
+}
+
+function recolorBars(mode) {
+  if (!S.gd || !S.data) return;
+  const colorMap = {
+    principal: S.data.colors_grade,
+    rampas: S.data.colors_grade,
+    viento: S.data.colors_wind,
+    lluvia: S.data.colors_rain,
+    energia: S.data.colors_danger,
+    pav: S.data.colors_surf,
+  };
+  const colors = colorMap[mode] || S.data.colors_grade;
+  if (colors) {
+    try { Plotly.restyle(S.gd, {'marker.color': [colors]}, [0]); } catch(e) {}
+  }
+}
+
+// Legacy — kept for compatibility
+function applyLayers() { recolorBars(S.activeTab); }
+
+function fillStats() {
+  if (!S.data) return;
+  document.getElementById('modules').style.display = 'block';
+  const d = S.data, st = d.stats || {};
+  // Rampas
+  const r6 = d.pends?.filter(p => p >= 6).length || 0;
+  document.getElementById('s-r6').textContent = r6 + ' pts';
+  document.getElementById('s-mg').textContent = (d.pends ? Math.max(...d.pends).toFixed(1) : '—') + '%';
+  document.getElementById('s-dp').textContent = (st.d_pos || '—') + ' m';
+  // Viento
+  const w = st.wind || {};
+  document.getElementById('s-ws').textContent = (w.speed?.toFixed(0) || '—') + ' km/h';
+  document.getElementById('s-wd').textContent = w.direction?.toFixed(0) || '—';
+  const wz = d.wind_dirs?.filter(w => w.startsWith('costado')).length || 0;
+  document.getElementById('s-wz').textContent = wz + ' pts';
+  // Lluvia
+  document.getElementById('s-rn').textContent = (d.rain_km ? Math.max(...d.rain_km).toFixed(1) : '—') + ' mm';
+  const rk = d.rain_km?.filter(r => r > 0.1).length || 0;
+  document.getElementById('s-rk').textContent = rk + ' pts';
+  // Energía
+  document.getElementById('s-kj').textContent = (st.total_kj || '—') + ' kJ';
+  const tt = st.est_time_min || 0;
+  document.getElementById('s-tt').textContent = `${Math.floor(tt/60)}h${Math.round(tt%60).toString().padStart(2,'0')}`;
+  // Pavimento
+  const surfs = {};
+  d.surf_map?.forEach(s => { surfs[s] = (surfs[s]||0)+1; });
+  const pavBox = document.getElementById('s-pav');
+  const labels = {'asphalt':'Asfalto','gravel':'Gravilla','dirt':'Tierra','cobblestone':'Adoquín','unpaved':'Sin asfaltar','compacted':'Compactado','grass':'Hierba','sand':'Arena','concrete':'Hormigón'};
+  pavBox.innerHTML = Object.entries(surfs)
+    .filter(([k]) => k !== 'asphalt')
+    .map(([k,v]) => `<div class="ms"><span class="ms-k">${labels[k]||k}</span><span class="ms-v">${v} pts</span></div>`)
+    .join('') || '<div class="ms"><span class="ms-k">Solo asfalto</span></div>';
+  // Waypoints
+  renderWPList();
+}
+
+function renderWPList() {
+  const box = document.getElementById('wp-list');
+  if (!S.wpList.length) { box.innerHTML = '<span style="color:var(--muted);font-size:11px">Sin waypoints</span>'; return; }
+  box.innerHTML = S.wpList.map((w,i) => `
+    <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line);font-size:11px">
+      <span>${w.name} · km ${w.dist?.toFixed(1)}</span>
+      <span style="cursor:pointer;color:var(--accent)" onclick="removeWP(${i})">✕</span>
+    </div>`).join('');
+}
+
+function removeWP(idx) {
+  S.wpList.splice(idx, 1);
+  renderWPList();
+  fetch('/delete_wp', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({index:idx})});
+  // Rebuild staff trace
+  if (S.gd && S.idxStaff >= 0) {
+    try { Plotly.restyle(S.gd, {
+      x: [S.wpList.map(w=>w.dist)], y: [S.wpList.map(w=>w.alt)], text: [S.wpList.map(w=>w.name)]
+    }, [S.idxStaff]); } catch(e) {}
+  }
+  toast('Waypoint eliminado');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ANALYSIS FLOW
+// ═══════════════════════════════════════════════════════════════
+function setLoading(on, msg='', pct=0) {
+  document.getElementById('loading').classList.toggle('show', on);
+  if (msg) document.getElementById('ld-msg').textContent = msg;
+  document.getElementById('ld-fill').style.width = pct+'%';
+}
+
+async function runAnalysis() {
+  const file = document.getElementById('gpx-file').files[0];
+  if (!file && !LIB_SEL) { toast('Selecciona un GPX o etapa'); return; }
+  setLoading(true, 'Iniciando...', 3);
+  document.getElementById('btn-run').disabled = true;
+  try {
+    const sr = await fetch('/api/stage', {method:'POST'});
+    const {stage_id} = await sr.json();
+    S.stageId = stage_id;
+
+    const es = new EventSource(`/api/sse/${stage_id}`);
+    es.onmessage = async e => {
+      const d = JSON.parse(e.data);
+      if (d.type==='job_update') setLoading(true, d.job.msg, d.job.progress);
+      else if (d.type==='analysis_ready') { es.close(); await loadAnalysis(stage_id); }
+      else if (d.type==='error') { es.close(); setLoading(false); toast('Error: '+(d.error||'?')); }
+    };
+    es.onerror = () => { es.close(); setTimeout(async()=>{try{const c=await fetch(`/api/analysis_data/${stage_id}`);if(c.ok){await loadAnalysis(stage_id);return}}catch(e){}setLoading(false);toast('Error SSE')},3000)};
+
+    if (LIB_SEL) {
+      const fd = new FormData();
+      fd.append('stage_id', stage_id);
+      fd.append('date', document.getElementById('f-date').value || new Date().toISOString().slice(0,10));
+      fd.append('start_hour', document.getElementById('f-hour').value||'11');
+      fd.append('rider_weight', document.getElementById('f-weight').value||'70');
+      fd.append('ftp_wkg', document.getElementById('f-ftp').value||'4.5');
+      await fetch(`/api/library/${LIB_SEL}/analyze`, {method:'POST', body:fd});
+    } else {
+      const fd = new FormData();
+      fd.append('stage_id', stage_id);
+      fd.append('file', file);
+      fd.append('date', document.getElementById('f-date').value||new Date().toISOString().slice(0,10));
+      fd.append('start_hour', document.getElementById('f-hour').value||'11');
+      fd.append('rider_weight', document.getElementById('f-weight').value||'70');
+      fd.append('ftp_wkg', document.getElementById('f-ftp').value||'4.5');
+      await fetch('/api/analyze', {method:'POST', body:fd});
+      // Auto-save to library
+      const fd2 = new FormData(); fd2.append('file',file); fd2.append('name',file.name.replace(/\.gpx$/i,''));
+      fetch('/api/library/save',{method:'POST',body:fd2}).then(()=>loadLib()).catch(()=>{});
+    }
+  } catch(e) { setLoading(false); toast('Error: '+e.message); }
+}
+
+function onFileSelected() { LIB_SEL=null; document.querySelectorAll('.lib-card').forEach(c=>c.classList.remove('selected')); }
+
+async function loadAnalysis(stageId) {
+  try {
+    const [rFig, rData] = await Promise.all([
+      fetch(`/api/analysis_fig/${stageId}`), fetch(`/api/analysis_data/${stageId}`)
+    ]);
+    if (rData.ok) { S.data = await rData.json(); S.idxStaff=S.data.idx_staff??-1; S.idxCursor=S.data.idx_cursor??-1; fillStats(); }
+    if (rFig.ok) renderFigure(await rFig.json());
+    initGMap();
+    renderRoadbook();
+    setLoading(false);
+    document.getElementById('btn-run').disabled = false;
+    toast('✓ Etapa cargada');
+  } catch(e) { setLoading(false); toast('Error cargando'); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PLOTLY PROFILE (direct, no iframe)
+// ═══════════════════════════════════════════════════════════════
+function renderFigure(fig) {
+  const c = document.getElementById('chart-container');
+  c.style.display = 'block';
+  document.getElementById('empty').style.display = 'none';
+  fig = typeof fig==='string' ? JSON.parse(fig) : fig;
+
+  Plotly.newPlot(c, fig.data, fig.layout, {
+    displaylogo:false, scrollZoom:true, responsive:true,
+    modeBarButtonsToAdd:['select2d'], modeBarButtonsToRemove:['lasso2d','autoScale2d']
+  }).then(gd => {
+    S.gd = gd;
+    applyLayers();
+
+    // HOVER → move cursor + Google Maps marker + Street View
+    gd.on('plotly_hover', ev => {
+      const p = ev.points?.find(p => p.data?.type!=='scattermapbox' && typeof p.x==='number');
+      if (!p) return;
+      if (S.idxCursor>=0) try{Plotly.restyle(gd,{x:[[p.x]],y:[[p.y]]},[S.idxCursor])}catch(e){}
+      moveMapTo(p.x);
+    });
+
+    // CLICK → waypoint
+    gd.on('plotly_click', ev => {
+      const p = ev.points?.find(p => p.data?.type!=='scattermapbox' && typeof p.x==='number');
+      if (!p) return;
+      const {lat,lon} = kmToCoords(p.x);
+      S.pendingAnn = {dist:p.x, alt:p.y, lat, lon};
+      document.getElementById('ann-panel').classList.add('show');
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GOOGLE MAPS + STREET VIEW
+// ═══════════════════════════════════════════════════════════════
+function initGMap() {
+  if (!S.data?.lats || !window.google?.maps) return;
+  document.getElementById('map-area').style.display = 'block';
+
+  if (!gmap) gmap = new google.maps.Map(document.getElementById('gmap'), {
+    zoom:10, mapTypeId:'terrain',
+    styles:[{featureType:'poi',stylers:[{visibility:'off'}]},{featureType:'transit',stylers:[{visibility:'off'}]}]
+  });
+
+  const path=[], bounds=new google.maps.LatLngBounds();
+  const lats=S.data.lats, lons=S.data.lons;
+  const step=Math.max(1, Math.floor(lats.length/500));
+  for(let i=0;i<lats.length;i+=step){const p={lat:lats[i],lng:lons[i]};path.push(p);bounds.extend(p)}
+
+  if(gmapPoly) gmapPoly.setMap(null);
+  gmapPoly = new google.maps.Polyline({path, map:gmap, strokeColor:'#ff3e3e', strokeWeight:4, strokeOpacity:0.9});
+
+  if(!gmapMarker) gmapMarker = new google.maps.Marker({map:gmap, position:path[0], icon:{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:'#ff3e3e',fillOpacity:1,strokeColor:'#fff',strokeWeight:2}});
+  else gmapMarker.setPosition(path[0]);
+
+  gmap.fitBounds(bounds);
+
+  try{gmapPano = new google.maps.StreetViewPanorama(document.getElementById('sv-pano'),{position:path[0],pov:{heading:0,pitch:0},zoom:1,addressControl:false,showRoadLabels:false})}catch(e){}
+}
+
+function moveMapTo(km) {
+  const {lat,lon,bearing:b} = kmToCoords(km);
+  if(!lat) return;
+  if(gmapMarker) gmapMarker.setPosition({lat,lng:lon});
+  if(gmapPano) { gmapPano.setPosition({lat,lng:lon}); gmapPano.setPov({heading:b||0,pitch:-5}); }
+}
+
+function kmToCoords(km) {
+  if(!S.data?.dists||!S.data?.lats) return {lat:0,lon:0,bearing:0};
+  const d=S.data.dists; let idx=0;
+  for(let i=1;i<d.length;i++) if(Math.abs(d[i]-km)<Math.abs(d[idx]-km)) idx=i;
+  const r=S.data.lats.length/d.length;
+  const mi=Math.min(Math.floor(idx*r), S.data.lats.length-1);
+  return {lat:S.data.lats[mi], lon:S.data.lons[mi], bearing:S.data.bearings?.[idx]||0};
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ROADBOOK
+// ═══════════════════════════════════════════════════════════════
+function renderRoadbook() {
+  const rb=S.data?.roadbook||[], ts=S.data?.tactical_summary||{};
+  document.getElementById('rb-summary').textContent = ts.summary||'Sin briefing';
+  const box=document.getElementById('rb-items');
+  if(!rb.length){box.innerHTML='<div style="text-align:center;margin-top:40px;opacity:.3">Sin eventos</div>';return}
+  const icons={climb:'⛰',wind:'💨',descent:'⚠️',rain:'🌧'};
+  box.innerHTML=rb.map(it=>`
+    <div class="rb-card ${it.severity||''}" onclick="jumpTo(${it.km})">
+      <div class="rb-km">${icons[it.type]||'📍'} KM ${it.km}${it.km_end?' → '+it.km_end:''}</div>
+      <div class="rb-label">${it.label}</div>
+      <div class="rb-meta">${it.type}${it.severity==='high'?' · PRIORIDAD ALTA':''}</div>
+    </div>`).join('');
+}
+
+function jumpTo(km) {
+  moveMapTo(km);
+  if(S.gd) try{Plotly.relayout(S.gd,{'xaxis.range':[Math.max(0,km-3),km+3]})}catch(e){}
+  toast(`Km ${km}`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WAYPOINTS
+// ═══════════════════════════════════════════════════════════════
+function cancelAnn(){document.getElementById('ann-panel').classList.remove('show');S.pendingAnn=null}
+function doAnn(label) {
+  document.getElementById('ann-panel').classList.remove('show');
+  if(!S.pendingAnn) return;
+  const {dist,alt,lat,lon}=S.pendingAnn;
+  S.wpCounter++; S.wpList.push({id:S.wpCounter,name:label,dist,alt,lat,lon});
+  // Add to Plotly chart as annotation marker ABOVE the profile
+  if(S.gd) {
+    try {
+      Plotly.extendTraces(S.gd,{x:[[dist]],y:[[alt]],text:[[label]]},[S.idxStaff]);
+      // Add visible annotation above
+      const annots = S.gd.layout.annotations || [];
+      annots.push({
+        x: dist, y: alt, text: label.slice(0,2), showarrow: true,
+        arrowhead: 2, arrowcolor: '#ff3e3e', arrowwidth: 2,
+        ax: 0, ay: -35,
+        font: {size: 14, color: '#ff3e3e', family: 'Outfit'},
+        bgcolor: 'rgba(15,17,21,0.9)', bordercolor: '#ff3e3e', borderwidth: 1, borderpad: 4,
+      });
+      Plotly.relayout(S.gd, {annotations: annots});
+    } catch(e) {}
+  }
+  // Add Google Maps marker
+  if(window.google?.maps && gmap && lat && lon) {
+    new google.maps.Marker({map:gmap, position:{lat,lng:lon},
+      label:{text:label.slice(0,2),color:'#fff',fontSize:'10px'},
+      icon:{path:google.maps.SymbolPath.CIRCLE,scale:7,fillColor:'#ff3e3e',fillOpacity:1,strokeColor:'#fff',strokeWeight:2}});
+  }
+  fetch('/add_wp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:label,dist,alt,lat,lon})});
+  renderWPList();
+  toast(`📍 ${label} @ km ${dist.toFixed(1)}`);
+  S.pendingAnn=null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LIBRARY
+// ═══════════════════════════════════════════════════════════════
+async function loadLib() {
+  try{const r=await fetch('/api/library');LIB=await r.json()}catch(e){LIB=[]}
+  const box=document.getElementById('lib-list');
+  if(!LIB.length){box.innerHTML='<div style="text-align:center;color:var(--muted);font-size:12px;padding:20px">Sin etapas guardadas</div>';return}
+  box.innerHTML=LIB.map(t=>`
+    <div class="lib-card ${LIB_SEL===t.id?'selected':''}" onclick="selectTrack('${t.id}')">
+      <div class="lib-name">${t.name||'Track'}</div>
+      <div class="lib-meta">${t.distance_km||'?'}km · D+${t.d_pos||'?'}m · ${t.points||'?'} pts</div>
+    </div>`).join('');
+}
+
+function selectTrack(id) {
+  LIB_SEL=id;
+  document.querySelectorAll('.lib-card').forEach(c=>c.classList.toggle('selected',c.onclick.toString().includes(id)));
+}
+
+function exportGPX() { if(S.wpList.length) window.open('/export_gpx','_blank'); else toast('Sin waypoints'); }
+function exportPDF() { if(S.data) window.open('/export_pdf','_blank'); else toast('Analiza primero'); }
+
+// ═══════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════
+function toast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// INIT
+document.getElementById('f-date').valueAsDate = new Date();
+loadLib();
+</script>
+</body>
+</html>
